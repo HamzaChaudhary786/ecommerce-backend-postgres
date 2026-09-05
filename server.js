@@ -196,24 +196,36 @@ app.all("*", (req, res, next) => {
 // Global Error Handler
 app.use(errorHandler);
 
-// ─── 3. SERVER START ─────────────────────────────────────────────────────────
-connectDB();
+export { app, connectDB };
 
-const PORT = process.env.PORT || 5000;
-const server = httpServer.listen(PORT, () => {
-  console.log("\n╔══════════════════════════════════════╗");
-  console.log("║       🛒  ShopVault API Server       ║");
-  console.log("╚══════════════════════════════════════╝");
-  console.log(`  🌍  Environment : ${process.env.NODE_ENV || "development"}`);
-  console.log(`  🚀  Port        : ${PORT}`);
-  console.log(`  🏥  Health      : http://localhost:${PORT}/api/health`);
-  console.log("  ──────────────────────────────────────\n");
-});
+// Vercel imports the Express app as a function. Keep listen() for local and
+// traditional Node deployments only.
+let server;
+if (!process.env.VERCEL) {
+  const PORT = process.env.PORT || 5000;
+  connectDB()
+    .then(() => {
+      server = httpServer.listen(PORT, () => {
+        console.log("\n╔══════════════════════════════════════╗");
+        console.log("║       🛒  ShopVault API Server       ║");
+        console.log("╚══════════════════════════════════════╝");
+        console.log(`  🌍  Environment : ${process.env.NODE_ENV || "development"}`);
+        console.log(`  🚀  Port        : ${PORT}`);
+        console.log(`  🏥  Health      : http://localhost:${PORT}/api/health`);
+        console.log("  ──────────────────────────────────────\n");
+      });
+    })
+    .catch(() => process.exit(1));
+}
 
 // Handle unhandled promise rejections
 process.on("unhandledRejection", (err) => {
   console.log(`Unhandled Rejection: ${err.message}`);
-  server.close(() => process.exit(1));
+  if (server) {
+    server.close(() => process.exit(1));
+  } else {
+    process.exit(1);
+  }
 });
 
 // Trigger nodemon restart

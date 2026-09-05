@@ -5,6 +5,7 @@
   "description": "Express.js backend with PostgreSQL/Prisma",
   "main": "server.js",
   "scripts": {
+    "postinstall": "prisma generate",
     "start": "node server.js",
     "dev": "npx nodemon server.js",
     "stripe:listen": "stripe listen --forward-to localhost:5000/api/payments/webhook",

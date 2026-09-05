@@ -1,9 +1,33 @@
+import "../loadEnv.js";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 
+const databaseUrl = process.env.DATABASE_URL;
+
+if (typeof databaseUrl !== "string" || !databaseUrl.trim()) {
+  throw new Error(
+    "DATABASE_URL is missing. Add it to ecommerce-backend-postgres/.env or set it in the process environment."
+  );
+}
+
+let parsedDatabaseUrl;
+try {
+  parsedDatabaseUrl = new URL(databaseUrl);
+} catch {
+  throw new Error("DATABASE_URL is not a valid PostgreSQL connection URL.");
+}
+
+if (parsedDatabaseUrl.protocol !== "postgresql:" && parsedDatabaseUrl.protocol !== "postgres:") {
+  throw new Error("DATABASE_URL must use the postgresql:// or postgres:// scheme.");
+}
+
+if (!parsedDatabaseUrl.password) {
+  throw new Error("DATABASE_URL must include a PostgreSQL password.");
+}
+
 const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: databaseUrl,
   min: 1,
   max: 5,
   idleTimeoutMillis: 30000,
@@ -43,7 +67,7 @@ export const connectDB = async () => {
     console.log("✅ PostgreSQL Connected via Prisma");
   } catch (error) {
     console.error(`❌ PostgreSQL Connection Error: ${error.message}`);
-    process.exit(1);
+    throw error;
   }
 };
 
