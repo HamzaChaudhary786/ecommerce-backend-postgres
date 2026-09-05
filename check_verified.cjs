@@ -1,0 +1,1 @@
+﻿const { Client } = require('pg'); const client = new Client({ connectionString: 'postgresql://postgres.hhjyoxvoheqazmzgjxzt:bSVS8id01Xqr5zaf@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres' }); client.connect().then(() => client.query('UPDATE "SellerStore" SET "isVerified" = true')).then(res => { console.log('Rows updated:', res.rowCount); client.end(); });
