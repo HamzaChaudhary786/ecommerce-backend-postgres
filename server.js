@@ -220,11 +220,13 @@ if (!process.env.VERCEL) {
 
 // Handle unhandled promise rejections
 process.on("unhandledRejection", (err) => {
-  console.log(`Unhandled Rejection: ${err.message}`);
-  if (server) {
-    server.close(() => process.exit(1));
-  } else {
-    process.exit(1);
+  console.log(`Unhandled Rejection: ${err?.message || err}`);
+  if (!process.env.VERCEL) {
+    if (server) {
+      server.close(() => process.exit(1));
+    } else {
+      process.exit(1);
+    }
   }
 });
 
