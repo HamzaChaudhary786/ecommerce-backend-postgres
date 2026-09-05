@@ -1,5 +1,6 @@
 import "./loadEnv.js"; // [RESTARTED SERVER TO SYNC PRISMA]
 import express from "express";
+import path from "path";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import cors from "cors";
@@ -50,10 +51,12 @@ import homeRoutes from "./routes/homeRoutes.js";
 import businessHubRoutes from "./routes/businessHubRoutes.js";
 import { handleStripeWebhook } from "./controllers/webhookController.js";
 
-// Import Cron Jobs
-import "./utils/auctionCron.js";
-import "./utils/flashSaleCron.js";
-import "./utils/rfqCron.js";
+// Import Cron Jobs (only for persistent server environments, not serverless)
+if (!process.env.VERCEL) {
+  import("./utils/auctionCron.js");
+  import("./utils/flashSaleCron.js");
+  import("./utils/rfqCron.js");
+}
 
 import errorHandler from "./middleware/errorHandler.js";
 import { AppError } from "./utils/helpers.js";
@@ -75,6 +78,27 @@ app.use(cors({
   origin: true, // This allows any origin and reflects it back, which is great for local network testing (e.g. 192.168.x.x)
   credentials: true
 }));
+
+// Lazy database connection on serverless platforms (Vercel)
+let dbConnectionPromise;
+app.use(async (req, res, next) => {
+  if (process.env.VERCEL) {
+    try {
+      dbConnectionPromise ??= connectDB();
+      await dbConnectionPromise;
+    } catch (err) {
+      dbConnectionPromise = undefined;
+      return next(err);
+    }
+  }
+  next();
+});
+
+// Serve static assets from public folder
+app.use(express.static(path.join(process.cwd(), "public")));
+
+// Ignore favicon requests to avoid cluttering 404 logs
+app.get(["/favicon.ico", "/favicon.png"], (req, res) => res.status(204).end());
 
 app.use(
   helmet({
@@ -182,9 +206,36 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// Root route
-app.get("/", (req, res) => {
-  res.json({ service: "ShopVault API", version: "1.0.0", status: "running" });
+// Root and API entry routes
+app.get(["/", "/api", "/api/"], (req, res) => {
+  if (req.accepts("html")) {
+    return res.sendFile(path.join(process.cwd(), "public", "index.html"), (err) => {
+      if (err) {
+        res.json({
+          service: "ShopVault API",
+          version: "1.0.0",
+          status: "running",
+          endpoints: {
+            health: "/api/health",
+            listings: "/api/listings",
+            categories: "/api/categories",
+            stores: "/api/stores",
+          },
+        });
+      }
+    });
+  }
+  res.json({
+    service: "ShopVault API",
+    version: "1.0.0",
+    status: "running",
+    endpoints: {
+      health: "/api/health",
+      listings: "/api/listings",
+      categories: "/api/categories",
+      stores: "/api/stores",
+    },
+  });
 });
 
 // 404 handler
@@ -196,6 +247,7 @@ app.all("*", (req, res, next) => {
 // Global Error Handler
 app.use(errorHandler);
 
+export default app;
 export { app, connectDB };
 
 // Vercel imports the Express app as a function. Keep listen() for local and

@@ -18,6 +18,7 @@ router.post("/:storeId/follow", protect, storeController.toggleFollow);
 
 // Public (parameterized routes last)
 router.get("/manufacturers", optionalAuth, storeController.getManufacturers);
+router.get("/", optionalAuth, storeController.getManufacturers);
 router.get("/:slug", optionalAuth, storeController.getStoreBySlug);
 router.post("/:slug/view", optionalAuth, storeController.incrementStoreView);
 router.get("/:storeId/listings", optionalAuth, storeController.getStoreListings);

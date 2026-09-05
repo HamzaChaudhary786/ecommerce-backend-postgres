@@ -1,4 +1,6 @@
 import { app, connectDB } from "../server.js";
+import path from "path";
+import fs from "fs";
 
 let databaseConnection;
 
@@ -16,6 +18,14 @@ export default async function handler(req, res) {
       req.url === "/api/" ||
       req.url === "/api/index.js"
     ) {
+      if (req.headers.accept?.includes("text/html")) {
+        const htmlPath = path.join(process.cwd(), "public", "index.html");
+        if (fs.existsSync(htmlPath)) {
+          res.setHeader("Content-Type", "text/html; charset=utf-8");
+          return res.status(200).send(fs.readFileSync(htmlPath, "utf-8"));
+        }
+      }
+
       return res.status(200).json({
         service: "ShopVault API",
         status: "running",
