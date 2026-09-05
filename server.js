@@ -124,13 +124,25 @@ app.use(hpp());
 // ─── Session with PostgreSQL store ───────────────────────────────────────────
 const PgSession = connectPgSimple(session);
 
-const pgPool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
-});
+const sessionDbUrl = process.env.DATABASE_URL?.includes(".pooler.supabase.com:5432")
+  ? process.env.DATABASE_URL.replace(".pooler.supabase.com:5432", ".pooler.supabase.com:6543")
+  : process.env.DATABASE_URL;
+
+const globalForSession = globalThis;
+const pgPool =
+  globalForSession.pgSessionPool ||
+  new pg.Pool({
+    connectionString: sessionDbUrl,
+    ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+    min: 0,
+    max: process.env.VERCEL ? 2 : 10,
+    idleTimeoutMillis: 10000,
+    connectionTimeoutMillis: 10000,
+  });
+
+if (process.env.NODE_ENV !== "production" || process.env.VERCEL) {
+  globalForSession.pgSessionPool = pgPool;
+}
 
 app.use(
   session({

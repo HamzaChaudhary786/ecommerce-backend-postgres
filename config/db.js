@@ -3,12 +3,18 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 
-const databaseUrl = process.env.DATABASE_URL;
+let databaseUrl = process.env.DATABASE_URL;
 
 if (typeof databaseUrl !== "string" || !databaseUrl.trim()) {
   throw new Error(
     "DATABASE_URL is missing. Add it to ecommerce-backend-postgres/.env or set it in the process environment."
   );
+}
+
+// On Supabase Supavisor pooler, port 5432 is Session mode (limited to pool_size: 15).
+// Port 6543 is Transaction mode, designed for serverless functions (Vercel) to support high concurrency.
+if (databaseUrl.includes(".pooler.supabase.com:5432")) {
+  databaseUrl = databaseUrl.replace(".pooler.supabase.com:5432", ".pooler.supabase.com:6543");
 }
 
 let parsedDatabaseUrl;
@@ -26,13 +32,21 @@ if (!parsedDatabaseUrl.password) {
   throw new Error("DATABASE_URL must include a PostgreSQL password.");
 }
 
-const pool = new pg.Pool({
-  connectionString: databaseUrl,
-  min: 1,
-  max: 5,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
-});
+const globalForDb = globalThis;
+
+const pool =
+  globalForDb.pgPrismaPool ||
+  new pg.Pool({
+    connectionString: databaseUrl,
+    min: 0,
+    max: process.env.VERCEL ? 3 : 10,
+    idleTimeoutMillis: 10000,
+    connectionTimeoutMillis: 5000,
+  });
+
+if (process.env.NODE_ENV !== "production" || process.env.VERCEL) {
+  globalForDb.pgPrismaPool = pool;
+}
 
 process.on('SIGINT', async () => {
   await pool.end();
